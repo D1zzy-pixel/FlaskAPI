@@ -1,38 +1,34 @@
-import os
-import psycopg2
 from flask import Flask, jsonify
+from flask_cors import CORS
+import psycopg2
+import os
 
 app = Flask(__name__)
+CORS(app)
+
+# ดึง DATABASE_URL จาก Environment Variables ของ Render
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_connection():
-    try:
-        return psycopg2.connect(
-            host=os.environ["DB_HOST"],
-            database=os.environ["DB_NAME"],
-            user=os.environ["DB_USER"],
-            password=os.environ["DB_PASSWORD"],
-            port=os.environ["DB_PORT"]
-        )
-    except Exception as e:
-        print("❌ Database connection failed:", e)
-        return None
+    return psycopg2.connect(DATABASE_URL)
 
 @app.route("/")
 def home():
-    return "✅ Flask API is running!"
+    return jsonify({"message": "Flask API is running!"})
 
 @app.route("/sales")
 def get_sales():
-    conn = get_connection()
-    if conn is None:
-        return jsonify({"error": "Database not connected"}), 500
-
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM sales LIMIT 10;")
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    return jsonify(rows)
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM sales LIMIT 10;")  # ดึงตัวอย่าง 10 แถว
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(rows)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
