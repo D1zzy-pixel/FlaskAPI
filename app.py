@@ -1,46 +1,38 @@
 import os
-from flask import Flask, jsonify
-from flask_cors import CORS
 import psycopg2
+from flask import Flask, jsonify
 
 app = Flask(__name__)
-CORS(app)
 
 def get_connection():
-    return psycopg2.connect(
-        host="localhost",
-        database="Jewllista_DB",
-        user="postgres",
-        password="Tiger@1234",
-        port=5432
-    )
+    try:
+        return psycopg2.connect(
+            host=os.environ["DB_HOST"],
+            database=os.environ["DB_NAME"],
+            user=os.environ["DB_USER"],
+            password=os.environ["DB_PASSWORD"],
+            port=os.environ["DB_PORT"]
+        )
+    except Exception as e:
+        print("❌ Database connection failed:", e)
+        return None
 
-@app.route("/sales", methods=["GET"])
+@app.route("/")
+def home():
+    return "✅ Flask API is running!"
+
+@app.route("/sales")
 def get_sales():
     conn = get_connection()
+    if conn is None:
+        return jsonify({"error": "Database not connected"}), 500
+
     cur = conn.cursor()
-    cur.execute("""
-        SELECT times, store, barcode, quantity, subtotal, discount
-        FROM sales
-        WHERE quantity IS NOT NULL
-    """)
+    cur.execute("SELECT * FROM sales LIMIT 10;")
     rows = cur.fetchall()
     cur.close()
     conn.close()
+    return jsonify(rows)
 
-    result = [
-        {
-            "times": str(r[0]),
-            "store": r[1],
-            "barcode": r[2],
-            "quantity": r[3],
-            "subtotal": float(r[4]),
-            "discount": float(r[5])
-        } 
-        for r in rows
-    ]
-    return jsonify(result)
-
-# ใช้ PORT จาก environment variable หรือ default 5000
-port = int(os.environ.get("PORT", 5000))
-app.run(host="0.0.0.0", port=port)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
